@@ -1,0 +1,46 @@
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>A* demo with a backbone</title>
+		
+		<script src="./js/underscore.js"></script>
+		<script src="./js/jquery-1.6.4.js"></script>
+		<script src="./js/backbone.js"></script>
+		<script src="./js/json2.js"></script>
+
+		<script src="./js/binheap.js"></script>
+		<script src="./js/hashmap.js"></script>
+
+		<script data-main="js/a_star" src="js/require.js"></script>
+
+		<link href="./css/style.css" media="all" rel="stylesheet" type="text/css">
+		
+	</head>
+	<body>
+		<script type="text/template" id="grid-template">
+			<table class="grid">
+				<% for(var i=0; i<rows; i++){%><tr id="row-<%= i %>"></tr><% }%>
+			</table>
+		</script>
+		<script type="text/template" id="button-template">
+			<button class="btn primary" id="<%= id %>"><%= name %></button>
+		</script>
+		<script type="text/template" id="help-text">
+			<p>
+				A* demo with a backbone.  Input the number of rows and columns in the range [2, 20].
+			</p>
+			<p>
+				Click build to build the grid.  Click and drag the start/end (green/red) cells to move them.
+				Click and drag any other cell to toggle whether it's passable or not.
+			</p>
+			<p>
+				When you're ready, click 'Start' to let the algo try to find a path.  The path is shown in light
+				blue, and expanded (or travelled) cells are shown in a varying color depending on the cost to get
+				there from the start cell.  If you want to make changes to the grid and try again click 'Unlock', 
+				make your changes, and then click 'Start' again.  Clicking 'Build' again will reset the div.  Be
+				warned that resizing the window so that the grid changes size will cause the inputs to be off till
+				you rebuild.
+			</p>
+		</script>
+	</body>
+</html>
