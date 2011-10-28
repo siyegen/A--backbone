@@ -2,7 +2,7 @@
 
 $(function(){
 
-		require(["colorChanger","models","views"], function(){
+		require(["hashmap","binheap","colorChanger","models","views"], function(){
 			Backbone.sync = function(method, model, success, error){ 
 				success();
 			}

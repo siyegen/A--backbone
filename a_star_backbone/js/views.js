@@ -1,8 +1,11 @@
-//Views
+// Views for the Demo
+// CellView is the view for rendering each of the 'cells'
+// current a td element in a row for ease of use
 
 var CellView = Backbone.View.extend({
 	tagName: 'td',
 	className: 'cell',
+	// Base Cellcolor Array, r=0, g=1, b=2
 	cellColor: [255,204,0],
 	initialize: function(){
 		_.bindAll(this, 'render', 'handleClick', 'changeBinding', 'incrementColor', 'cellInfo', 'toggle');
@@ -50,14 +53,16 @@ var CellView = Backbone.View.extend({
 			}
 		}
 	},
-	toggle: function(e){
+	toggle: function(e){ // Cell toggling is only for blank to selected or vice-versa
 		if(this.model.get('state')===CellState.blank){
 			this.model.changeState(CellState.selected);
 		} else if(this.model.get('state')===CellState.selected){
 			this.model.changeState(CellState.blank);
 		}
 	},
-	cellInfo: function(e){
+	// Creates a CellInfoView with this model as the model
+	// Used to render the floating divs that contain the information on the cell
+	cellInfo: function(e){ 
 		if(this.model.get('hasInfo')!==true){
 			console.log(this.model);
 			var infoView = new CellInfoView({
@@ -69,6 +74,11 @@ var CellView = Backbone.View.extend({
 	}
 });
 
+// View used to render the moving cell for start/end
+// We pass it a new cell as the model, so we can update 
+// the view based on the model attr changing
+// When the model is set to 'kill', we destory the model
+// and remove the view from the scene
 var MoveCellView = Backbone.View.extend({
 	tagName: 'div',
 	className: 'cell-move',
@@ -100,6 +110,10 @@ var MoveCellView = Backbone.View.extend({
 	}
 });
 
+// This view is responsible for the Grid
+// As the higher up view it contains a collection of cells
+// And will change the state of the cells which will 
+// cause updates/re-rendering of the CellView
 var GridView = Backbone.View.extend({
 	tagName: 'div',
 	className: 'grid-view',
@@ -123,6 +137,8 @@ var GridView = Backbone.View.extend({
 		'mouseup': 'removeMove',
 		'mouseleave': 'removeMove'
 	},
+	// this function will rebind all of the events in the events hash
+	// it also trickles down and resets the path/travelled cells
 	rebind: function(){
 		this.delegateEvents(this.events);				
 		this.model.collection.each(function(cell){
@@ -134,6 +150,8 @@ var GridView = Backbone.View.extend({
 			cell.set({binding: 'reset'});
 		});
 	},
+	// Removes all event bindings
+	// Assures the same is done for the cells
 	unbindAll: function(){
 		this.delegateEvents({});
 		this.model.collection.each(function(cell){
@@ -144,9 +162,15 @@ var GridView = Backbone.View.extend({
 		$(this.el).html(this.template(this.model.toJSON()));
 		return this;
 	},
+	// Function called after init to create all the cells in the Grid
 	createCells: function(){
 		CellView.prototype.colorChanger = new ColorChanger([255,245,8], [127,100,93], 
 			Math.max(this.model.get('rows'), this.model.get('columns')));
+
+		var offSet = this.$('.grid').offset();
+		this.offsetX = offSet.left;
+		this.offsetY = offSet.top;
+
 		this.model.collection.each(function(cell){
 			var cellView = new CellView({
 				model: cell,
@@ -154,11 +178,10 @@ var GridView = Backbone.View.extend({
 			});
 			this.$('#row-'+cell.get('x')).append(cellView.render().el);
 		});
-		var offSet = this.$('.grid').offset();
-		this.offsetX = offSet.left;
-		this.offsetY = offSet.top;
+
 		this.cellWidth = $('#'+this.model.collection.first().id).outerWidth();
 		this.cellHeight = $('#'+this.model.collection.first().id).outerHeight();
+
 		this.startCell = this.model.collection.get('c-0-0').changeState(CellState.start);
 		this.endCell = this.model.collection.get(
 			'c-'+(this.model.get('rows')-1)+'-'+(this.model.get('columns')-1))
@@ -371,42 +394,51 @@ var AppView = Backbone.View.extend({
 		this.gridView.rebind();	
 	},
 	findPath: function(){
+		// locks the events from firing on the grid
 		this.lock();
 		var grid = this.gridView.model;
 		var currGridView = this.gridView;
-		// var closed = new HashMap('string');
-		var closed = {};
+		var closed = new Hash();
+		var openList = new Hash();
 		var open = new BinHeap(function(e){
 			return e.get('fCost');
 		}, 'min');
-		// var openList = new HashMap('string');
-		var openList = {};
+
 		var currentCell = null;
 		var start = currGridView.startCell;
 		var end = currGridView.endCell;
+
 		start.set({gCost: 0});
 		open.push(start);
-		openList[start.id] = start;
+		openList.put(start.id, start);
+
+		// While we have some elements that have to be looked at
 		while(open.size()>0){
+			// Open is a binheap that uses the fCost of each cell
+			// pop will always return the lowest cell with the lowest fCost
 			currentCell = open.pop();
-			delete openList[currentCell.id];
+			openList.remove(currentCell.id);
+			// popping the end cell means we've found our lowest cost path
 			if(currentCell===end){
 				currGridView.buildPath(currentCell);
 				break;
 			}
-			closed[currentCell.id] = currentCell;
+			// The closed list is a list of cells we no longer wish to look at
+			closed.put(currentCell.id, currentCell);
+			// for each adjacent cell to the current cell, look at it and determine
+			// the costs of moving to it and the cost of getting to the end from there
 			_.each(grid.getAdjCells(currentCell), function(adjCell){
 				if(adjCell.get('state')!==CellState.selected){
 					var cost = currGridView.g(currentCell) + currGridView.moveCost(currentCell, adjCell);
-					if(openList.hasOwnProperty(adjCell.id) && cost < openList[adjCell.id].get('gCost')){
-						openList[adjCell.id].set({parent: currentCell, silent: true});
+					if(openList.contains(adjCell.id) && cost < openList.get(adjCell.id).get('gCost')){
+						adjCell.set({parent: currentCell, silent: true});
 						open.remove(adjCell);
-						delete openList[adjCell.id];
+						openList.remove(adjCell.id);
 					}
-					if(closed.hasOwnProperty(adjCell.id) && cost < adjCell.get('gCost')){
-						delete closed[adjCell.id];
+					if(closed.contains(adjCell.id) && cost < adjCell.get('gCost')){
+						closed.remove(adjCell.id);
 					}
-					if(!openList.hasOwnProperty(adjCell.id) && !closed.hasOwnProperty(adjCell.id)){
+					if(!openList.contains(adjCell.id) && !closed.contains(adjCell.id)){
 						adjCell.set({parent: currentCell, silent: true});
 						var setValues = {
 							gCost: cost,
@@ -416,7 +448,7 @@ var AppView = Backbone.View.extend({
 						adjCell.set(setValues);
 						adjCell.changeState(CellState.travelled);
 						open.push(adjCell);
-						openList[adjCell.id] = adjCell;
+						openList.put(adjCell.id, adjCell);
 					}
 				}
 			});
