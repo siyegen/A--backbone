@@ -374,37 +374,39 @@ var AppView = Backbone.View.extend({
 		this.lock();
 		var grid = this.gridView.model;
 		var currGridView = this.gridView;
-		var closed = new HashMap('string');
+		// var closed = new HashMap('string');
+		var closed = {};
 		var open = new BinHeap(function(e){
 			return e.get('fCost');
 		}, 'min');
-		var openList = new HashMap('string');
+		// var openList = new HashMap('string');
+		var openList = {};
 		var currentCell = null;
 		var start = currGridView.startCell;
 		var end = currGridView.endCell;
 		start.set({gCost: 0});
 		open.push(start);
-		openList.put(start.id, start);
+		openList[start.id] = start;
 		while(open.size()>0){
 			currentCell = open.pop();
-			openList.remove(currentCell.id);
+			delete openList[currentCell.id];
 			if(currentCell===end){
 				currGridView.buildPath(currentCell);
 				break;
 			}
-			closed.put(currentCell.id, currentCell);
+			closed[currentCell.id] = currentCell;
 			_.each(grid.getAdjCells(currentCell), function(adjCell){
 				if(adjCell.get('state')!==CellState.selected){
 					var cost = currGridView.g(currentCell) + currGridView.moveCost(currentCell, adjCell);
-					if(openList.contains(adjCell.id) && cost < openList.get(adjCell.id).get('gCost')){
-						openList.get(adjCell.id).set({parent: currentCell, silent: true});
+					if(openList.hasOwnProperty(adjCell.id) && cost < openList[adjCell.id].get('gCost')){
+						openList[adjCell.id].set({parent: currentCell, silent: true});
 						open.remove(adjCell);
-						openList.remove(adjCell.id);
+						delete openList[adjCell.id];
 					}
-					if(closed.contains(adjCell.id) && cost < adjCell.get('gCost')){
-						closed.remove(adjCell.id);
+					if(closed.hasOwnProperty(adjCell.id) && cost < adjCell.get('gCost')){
+						delete closed[adjCell.id];
 					}
-					if(!openList.contains(adjCell.id) && !closed.contains(adjCell.id)){
+					if(!openList.hasOwnProperty(adjCell.id) && !closed.hasOwnProperty(adjCell.id)){
 						adjCell.set({parent: currentCell, silent: true});
 						var setValues = {
 							gCost: cost,
@@ -414,7 +416,7 @@ var AppView = Backbone.View.extend({
 						adjCell.set(setValues);
 						adjCell.changeState(CellState.travelled);
 						open.push(adjCell);
-						openList.put(adjCell.id, adjCell);
+						openList[adjCell.id] = adjCell;
 					}
 				}
 			});
